@@ -1,14 +1,12 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Http;
 use App\Models\Plant;
-
 
 class PlantController extends Controller
 {
@@ -29,7 +27,7 @@ class PlantController extends Controller
 
         $image = $request->file('image');
         $imageContent = base64_encode(file_get_contents($image->getRealPath()));
-        $apiKey = '9nyi5mKWgJB1LaSTuigkNQMX5c97yxKJVPTb3XemTabJMS29ev'; // Replace with your actual API key
+        $apiKey = '9814w2Nugc6oa0TJ9hDbVcJxa4cVGTSJNEt86tve2n82DN03lt'; // Replace with your actual API key
 
         $client = new Client();
         $url = 'https://plant.id/api/v3/identification';
@@ -85,8 +83,9 @@ class PlantController extends Controller
 
     public function fetchPlantDetails($searchQuery)
     {
-        $apiKey = '9nyi5mKWgJB1LaSTuigkNQMX5c97yxKJVPTb3XemTabJMS29ev'; // Replace with your actual API key
+        $apiKey = '9814w2Nugc6oa0TJ9hDbVcJxa4cVGTSJNEt86tve2n82DN03lt'; // Replace with your actual API key
         $apiUrl = 'https://plant.id/api/v3/kb/plants/name_search';
+        
 
         if (empty($searchQuery)) {
             return response()->json(['error' => 'Please enter a plant name.'], 400);
@@ -126,7 +125,7 @@ class PlantController extends Controller
 
     public function fetchPlantDescription($accessToken)
     {
-        $apiKey = '9nyi5mKWgJB1LaSTuigkNQMX5c97yxKJVPTb3XemTabJMS29ev'; // Replace with your actual API key
+        $apiKey = '9814w2Nugc6oa0TJ9hDbVcJxa4cVGTSJNEt86tve2n82DN03lt'; // Replace with your actual API key
         $url = "https://plant.id/api/v3/kb/plants/$accessToken-?details=common_names,url,description,taxonomy,rank,gbif_id,inaturalist_id,image,synonyms,edible_parts,watering,propagation_methods&lang=en";
         $headers = [
             'Api-Key' => $apiKey,
@@ -152,22 +151,59 @@ class PlantController extends Controller
         }
     }
 
-
-    public function savePlant(Request $request)
+    
+    public function store(Request $request)
     {
-        // Validate the incoming request data
-        $validatedData = $request->validate([
-            'identifiedPlantName' => 'required|string',
-            'probability' => 'required|numeric',
-            'plantDescription' => 'required|string',
-            'similarImages' => 'required|array',
+        Plant::create([
+            'name' => $request->identifiedPlantName, // Map form input to 'name'
+            'probability' => $request->probability,
+            'description' => $request->plantDescription, // Map form input to 'description'
+            'similar_images' => $request->similarImages, // Map form input to 'similar_images'
         ]);
 
-        // Create a new Plant instance and save it to the database
-        Plant::create($validatedData);
-        return redirect()->route('plant.result')->with('success', 'Category created successfully!');
-
         // Redirect back with a success message
-        return redirect()->back()->with('success', 'Plant details saved successfully.');
+        return redirect()->route('index')->with('success', 'Plant details saved successfully.');
     }
+    public function index()
+    {
+        $plants = Plant::all(); // Fetch all plants from the database
+        return view('plant.display', compact('plants'));
+    }
+   
+    public function destroy(Plant $plant){
+        $plant->delete();
+        return redirect()->route('plant.display');
+}
+private $apiKey = 'rG_dwqQaWWJvhEpeuvNb5wrfLyeJI-E2kD4Q5_oKe10'; // Replace with your Trefle API key
+
+public function facts()
+{
+    $facts = [];
+    $fact = '';
+    $imageUrl = '';
+
+    // Fetch random plant facts if no data is provided
+    $url = "https://trefle.io/api/v1/plants?token={$this->apiKey}";
+    $response = Http::get($url);
+
+    if ($response->successful()) {
+        $data = $response->json()['data'];
+        if (count($data) >= 2) {
+            $randomKeys = array_rand($data, 2);
+            $plants = [$data[$randomKeys[0]], $data[$randomKeys[1]]];
+            $facts = array_map(function($plant) {
+                return [
+                    'fact' => "{$plant['common_name']} belongs to the {$plant['family_common_name']} family. Scientific name: {$plant['scientific_name']}.",
+                    'imageUrl' => $plant['image_url']
+                ];
+            }, $plants);
+        } else {
+            $facts = [["fact" => "Not enough plant data available.", "imageUrl" => null]];
+        }
+    } else {
+        $facts = [["fact" => "Failed to fetch plant fact. Response status: " . $response->status() . ". Response body: " . $response->body(), "imageUrl" => null]];
+    }
+
+    return $facts;
+}
 }
